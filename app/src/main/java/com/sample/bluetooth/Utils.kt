@@ -1,15 +1,15 @@
 package com.sample.bluetooth
 
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.core.content.ContextCompat
 import android.Manifest
 import android.app.Activity
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 
 /**
  * Determine whether the current [Context] has been granted the relevant [Manifest.permission].
@@ -64,6 +64,12 @@ fun BluetoothGattCharacteristic.isWritable(): Boolean =
 
 fun BluetoothGattCharacteristic.isWritableWithoutResponse(): Boolean =
     containsProperty(BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)
+
+fun BluetoothGattCharacteristic.isIndicatable(): Boolean =
+    containsProperty(BluetoothGattCharacteristic.PROPERTY_INDICATE)
+
+fun BluetoothGattCharacteristic.isNotifiable(): Boolean =
+    containsProperty(BluetoothGattCharacteristic.PROPERTY_NOTIFY)
 
 fun BluetoothGattCharacteristic.containsProperty(property: Int): Boolean {
     return properties and property != 0

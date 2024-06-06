@@ -2,12 +2,14 @@ package com.sample.bluetooth
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.annotation.TargetApi
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
@@ -21,7 +23,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelUuid
 import android.util.Log
 import android.widget.Button
 import androidx.activity.enableEdgeToEdge
@@ -31,12 +32,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import java.math.BigInteger
-import java.util.UUID
+import java.nio.charset.StandardCharsets
+import java.util.*
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var btnScan: Button
+    private lateinit var btnTest2: Button
+    private lateinit var btnTest3: Button
+
+    private var mBluetoothGatt: BluetoothGatt? = null
 
     private var isScanning = false
         set(value) {
@@ -91,6 +99,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val mGattCallback = object : BluetoothGattCallback() {
+
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             val deviceAddress = gatt.device.address
@@ -98,9 +107,18 @@ class MainActivity : AppCompatActivity() {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     Log.w("BluetoothGattCallback", "Successfully connected to $deviceAddress")
+
+
+                    // stash BluetoothGatt instance ...
+                    this@MainActivity.mBluetoothGatt = gatt
+
+                    // discovery service ....
                     Handler(Looper.getMainLooper()).post {
                         gatt.discoverServices()
                     }
+
+                    // ...
+                    createToast(this@MainActivity, "Connected OK")
 
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     Log.w("BluetoothGattCallback", "Successfully disconnected from $deviceAddress")
@@ -127,17 +145,12 @@ class MainActivity : AppCompatActivity() {
                 printGattTable()
                 // Consider connection setup as complete here
             }
-
-            // todo .....
-            readBatteryLevel(gatt)
         }
 
         @Deprecated("Deprecated for Android 13+")
         @Suppress("DEPRECATION")
         override fun onCharacteristicRead(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
+            gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int
         ) {
 
             with(characteristic) {
@@ -175,14 +188,15 @@ class MainActivity : AppCompatActivity() {
 
                     val hexString = value.toHexString()
                     Log.i(
-                        "BluetoothGattCallback",
-                        "Read characteristic $uuid:\n $hexString"
+                        "BluetoothGattCallback", "Read characteristic $uuid:\n $hexString"
                     )
 
                     // todo ...............
-                    Log.d(TAG, "onCharacteristicRead: ppp=${
-                        littleEndianConversion(value)
-                    }")
+                    // Log.d(
+                    //     TAG, "onCharacteristicRead: ppp=${
+                    //         littleEndianConversion(value)
+                    //     }"
+                    // )
                 }
 
                 BluetoothGatt.GATT_READ_NOT_PERMITTED -> {
@@ -196,6 +210,48 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             }
+        }
+
+        @Deprecated("Deprecated for Android 13+")
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic
+        ) {
+
+            with(characteristic) {
+                Log.i(
+                    "BluetoothGattCallback",
+                    "Characteristic $uuid changed | value: ${value.toHexString()}"
+                )
+            }
+        }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray
+        ) {
+
+            val newValueHex = value.toHexString()
+            with(characteristic) {
+                Log.i("BluetoothGattCallback", "Characteristic $uuid changed | value: $newValueHex")
+            }
+
+            // ...
+
+
+            val dataString = String(value, StandardCharsets.US_ASCII).trim { it <= ' ' }
+            val pattern: Pattern = Pattern.compile("T=([-\\d\\.]*)+?H=([-\\d\\.]*)")
+            val match: Matcher = pattern.matcher(dataString)
+            if (match.find()) {
+                // mjhtv1SensorData.setTemperature(Float.parseFloat(match.group(1)));
+                // mjhtv1SensorData.setAirHumidity(Float.parseFloat(match.group(2)));
+
+                val temperature = match.group(1)?.toFloatOrNull()
+                val humidity = match.group(2)?.toFloatOrNull()
+
+                Log.d(TAG, "onCharacteristicChanged: .... $temperature $humidity")
+            }
+
+
         }
     }
 
@@ -214,13 +270,17 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
     //
 
     companion object {
         private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 100
         private const val XIAOMI_MIJIA_SENSOR_NAME = "MJ_HT_V1"
+
+        private const val XIAOMI_ENV_SERVICE = "226c0000-6476-4566-7562-66734470666d"
+        private const val XIAOMI_ENV_CHARACTERISTIC = "226caa55-6476-4566-7562-66734470666d"
+
+        private const val CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -235,14 +295,39 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        // Button 1
         btnScan = findViewById(R.id.btn_test)
-
         btnScan.setOnClickListener {
             if (isScanning) {
                 stopBleScan()
             } else {
                 startBleScan()
             }
+        }
+
+        // Button 2
+        btnTest2 = findViewById(R.id.btn_test_2)
+        btnTest2.setOnClickListener {
+
+            val serviceUuid = UUID.fromString(XIAOMI_ENV_SERVICE)
+            val charUuid = UUID.fromString(XIAOMI_ENV_CHARACTERISTIC)
+
+            val characteristic = mBluetoothGatt?.getService(serviceUuid)?.getCharacteristic(
+                charUuid
+            )
+
+            characteristic?.descriptors?.forEach {
+                Log.w(TAG, "*** descriptors uuid: ${it.uuid}")
+            }
+
+            enableNotifications(characteristic!!)
+
+        }
+
+        // Button 3
+        btnTest3 = findViewById(R.id.btn_test_3)
+        btnTest3.setOnClickListener {
+
         }
     }
 
@@ -388,4 +473,112 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    //
+    fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, payload: ByteArray) {
+        val writeType = when {
+            characteristic.isWritable() -> BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            characteristic.isWritableWithoutResponse() -> {
+                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            }
+
+            else -> error("Characteristic ${characteristic.uuid} cannot be written to")
+        }
+
+        mBluetoothGatt?.let { gatt ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                gatt.writeCharacteristic(characteristic, payload, writeType)
+            } else {
+                // Fall back to deprecated version of writeCharacteristic for Android <13
+                gatt.legacyCharacteristicWrite(characteristic, payload, writeType)
+            }
+        } ?: error("Not connected to a BLE device!")
+    }
+
+    @TargetApi(Build.VERSION_CODES.S)
+    @Suppress("DEPRECATION")
+    private fun BluetoothGatt.legacyCharacteristicWrite(
+        characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: Int
+    ) {
+        characteristic.writeType = writeType
+        characteristic.value = value
+        writeCharacteristic(characteristic)
+    }
+
+
+    //
+    fun writeDescriptor(descriptor: BluetoothGattDescriptor, payload: ByteArray) {
+        mBluetoothGatt?.let { gatt ->
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                gatt.writeDescriptor(descriptor, payload)
+            } else {
+                // Fall back to deprecated version of writeDescriptor for Android <13
+                gatt.legacyDescriptorWrite(descriptor, payload)
+            }
+
+        } ?: error("Not connected to a BLE device!")
+    }
+
+    @TargetApi(Build.VERSION_CODES.S)
+    @Suppress("DEPRECATION")
+    private fun BluetoothGatt.legacyDescriptorWrite(
+        descriptor: BluetoothGattDescriptor, value: ByteArray
+    ): Boolean {
+        descriptor.value = value
+        return writeDescriptor(descriptor)
+    }
+
+    private fun enableNotifications(characteristic: BluetoothGattCharacteristic) {
+        val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
+
+        val payload = when {
+            characteristic.isIndicatable() -> BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+            characteristic.isNotifiable() -> BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            else -> {
+                Log.e(
+                    "ConnectionManager",
+                    "${characteristic.uuid} doesn't support notifications/indications"
+                )
+                return
+            }
+        }
+
+        characteristic.getDescriptor(cccdUuid)?.let { cccDescriptor ->
+            if (mBluetoothGatt?.setCharacteristicNotification(characteristic, true) == false) {
+                Log.e(
+                    "ConnectionManager",
+                    "setCharacteristicNotification failed for ${characteristic.uuid}"
+                )
+                return
+            }
+
+            writeDescriptor(cccDescriptor, payload)
+        } ?: Log.e(
+            "ConnectionManager", "${characteristic.uuid} doesn't contain the CCC descriptor!"
+        )
+    }
+
+    private fun disableNotifications(characteristic: BluetoothGattCharacteristic) {
+        if (!characteristic.isNotifiable() && !characteristic.isIndicatable()) {
+            Log.e(
+                "ConnectionManager",
+                "${characteristic.uuid} doesn't support indications/notifications"
+            )
+            return
+        }
+
+        val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
+        characteristic.getDescriptor(cccdUuid)?.let { cccDescriptor ->
+            if (mBluetoothGatt?.setCharacteristicNotification(characteristic, false) == false) {
+                Log.e(
+                    "ConnectionManager",
+                    "setCharacteristicNotification failed for ${characteristic.uuid}"
+                )
+                return
+            }
+            writeDescriptor(cccDescriptor, BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)
+        } ?: Log.e(
+            "ConnectionManager", "${characteristic.uuid} doesn't contain the CCC descriptor!"
+        )
+    }
 }
