@@ -474,6 +474,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     //
+    @SuppressLint("MissingPermission")
     fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, payload: ByteArray) {
         val writeType = when {
             characteristic.isWritable() -> BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
@@ -494,6 +495,7 @@ class MainActivity : AppCompatActivity() {
         } ?: error("Not connected to a BLE device!")
     }
 
+    @SuppressLint("MissingPermission")
     @TargetApi(Build.VERSION_CODES.S)
     @Suppress("DEPRECATION")
     private fun BluetoothGatt.legacyCharacteristicWrite(
@@ -506,6 +508,7 @@ class MainActivity : AppCompatActivity() {
 
 
     //
+    @SuppressLint("MissingPermission")
     fun writeDescriptor(descriptor: BluetoothGattDescriptor, payload: ByteArray) {
         mBluetoothGatt?.let { gatt ->
 
@@ -519,6 +522,7 @@ class MainActivity : AppCompatActivity() {
         } ?: error("Not connected to a BLE device!")
     }
 
+    @SuppressLint("MissingPermission")
     @TargetApi(Build.VERSION_CODES.S)
     @Suppress("DEPRECATION")
     private fun BluetoothGatt.legacyDescriptorWrite(
@@ -528,6 +532,7 @@ class MainActivity : AppCompatActivity() {
         return writeDescriptor(descriptor)
     }
 
+    @SuppressLint("MissingPermission")
     private fun enableNotifications(characteristic: BluetoothGattCharacteristic) {
         val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
 
@@ -558,6 +563,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    @SuppressLint("MissingPermission")
     private fun disableNotifications(characteristic: BluetoothGattCharacteristic) {
         if (!characteristic.isNotifiable() && !characteristic.isIndicatable()) {
             Log.e(
@@ -569,7 +575,8 @@ class MainActivity : AppCompatActivity() {
 
         val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
         characteristic.getDescriptor(cccdUuid)?.let { cccDescriptor ->
-            if (mBluetoothGatt?.setCharacteristicNotification(characteristic, false) == false) {
+            if (
+                mBluetoothGatt?.setCharacteristicNotification(characteristic, false) == false) {
                 Log.e(
                     "ConnectionManager",
                     "setCharacteristicNotification failed for ${characteristic.uuid}"
