@@ -32,10 +32,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import java.nio.charset.StandardCharsets
 import java.util.*
-import java.util.regex.Matcher
-import java.util.regex.Pattern
 
 
 class MainActivity : AppCompatActivity() {
@@ -236,22 +233,20 @@ class MainActivity : AppCompatActivity() {
             }
 
             // ...
+            val str = String(value)
+            Log.d(TAG, "onCharacteristicChanged: str: $str")
 
-
-            val dataString = String(value, StandardCharsets.US_ASCII).trim { it <= ' ' }
-            val pattern: Pattern = Pattern.compile("T=([-\\d\\.]*)+?H=([-\\d\\.]*)")
-            val match: Matcher = pattern.matcher(dataString)
-            if (match.find()) {
-                // mjhtv1SensorData.setTemperature(Float.parseFloat(match.group(1)));
-                // mjhtv1SensorData.setAirHumidity(Float.parseFloat(match.group(2)));
-
-                val temperature = match.group(1)?.toFloatOrNull()
-                val humidity = match.group(2)?.toFloatOrNull()
-
-                Log.d(TAG, "onCharacteristicChanged: .... $temperature $humidity")
+            // temp
+            val kk = with(str) {
+                substring(indexOf("T="), lastIndexOf(" "))
             }
+            Log.d(TAG, "onCharacteristicChanged: $kk")
 
-
+            // temp
+            val k = with(str) {
+                substring(indexOf("H="), length - 1)
+            }
+            Log.d(TAG, "onCharacteristicChanged: $k")
         }
     }
 
