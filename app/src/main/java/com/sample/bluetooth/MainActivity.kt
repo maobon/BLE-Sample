@@ -104,18 +104,11 @@ class MainActivity : AppCompatActivity() {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     Log.w("BluetoothGattCallback", "Successfully connected to $deviceAddress")
-
-
                     // stash BluetoothGatt instance ...
                     this@MainActivity.mBluetoothGatt = gatt
 
-                    // discovery service ....
-                    Handler(Looper.getMainLooper()).post {
-                        gatt.discoverServices()
-                    }
-
-                    // ...
                     createToast(this@MainActivity, "Connected OK")
+                    discoveryServices()
 
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     Log.w("BluetoothGattCallback", "Successfully disconnected from $deviceAddress")
@@ -141,6 +134,8 @@ class MainActivity : AppCompatActivity() {
                 // See implementation just above this section
                 printGattTable()
                 // Consider connection setup as complete here
+
+                enableNotify()
             }
         }
 
@@ -303,20 +298,7 @@ class MainActivity : AppCompatActivity() {
         // Button 2
         btnTest2 = findViewById(R.id.btn_test_2)
         btnTest2.setOnClickListener {
-
-            val serviceUuid = UUID.fromString(XIAOMI_ENV_SERVICE)
-            val charUuid = UUID.fromString(XIAOMI_ENV_CHARACTERISTIC)
-
-            val characteristic = mBluetoothGatt?.getService(serviceUuid)?.getCharacteristic(
-                charUuid
-            )
-
-            characteristic?.descriptors?.forEach {
-                Log.w(TAG, "*** descriptors uuid: ${it.uuid}")
-            }
-
-            enableNotifications(characteristic!!)
-
+            enableNotify()
         }
 
         // Button 3
@@ -332,6 +314,37 @@ class MainActivity : AppCompatActivity() {
         if (!mBluetoothAdapter.isEnabled) {
             promptEnableBluetooth()
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun discoveryServices() {
+        Handler(Looper.getMainLooper()).postDelayed({
+            this@MainActivity.mBluetoothGatt?.discoverServices()
+        }, 100)
+    }
+
+
+    private fun enableNotify() {
+        val serviceUuid = UUID.fromString(XIAOMI_ENV_SERVICE)
+        val charUuid = UUID.fromString(XIAOMI_ENV_CHARACTERISTIC)
+
+        mBluetoothGatt?.getService(serviceUuid)?.let {
+            Log.d(TAG, "enableNotify: getService successfully: ${it.uuid}")
+            val characteristic = it.getCharacteristic(charUuid)
+            Log.d(TAG, "enableNotify: characteristic => $characteristic")
+
+            enableNotifications(characteristic)
+        }
+
+        // val characteristic = mBluetoothGatt?.getService(serviceUuid)?.getCharacteristic(
+        //     charUuid
+        // )
+
+
+        // characteristic?.descriptors?.forEach {
+        //     Log.w(TAG, "*** descriptors uuid: ${it.uuid}")
+        // }
+
     }
 
     // ....
@@ -426,7 +439,6 @@ class MainActivity : AppCompatActivity() {
             requestRelevantRuntimePermissions()
 
         } else {
-            createToast(this@MainActivity, "Good to GO")
             isScanning = true
 
             val scanFilter = ScanFilter.Builder().setDeviceName(XIAOMI_MIJIA_SENSOR_NAME).build()
@@ -570,8 +582,7 @@ class MainActivity : AppCompatActivity() {
 
         val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
         characteristic.getDescriptor(cccdUuid)?.let { cccDescriptor ->
-            if (
-                mBluetoothGatt?.setCharacteristicNotification(characteristic, false) == false) {
+            if (mBluetoothGatt?.setCharacteristicNotification(characteristic, false) == false) {
                 Log.e(
                     "ConnectionManager",
                     "setCharacteristicNotification failed for ${characteristic.uuid}"
