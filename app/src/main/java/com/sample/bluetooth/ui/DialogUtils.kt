@@ -1,4 +1,4 @@
-package com.sample.bluetooth
+package com.sample.bluetooth.ui
 
 import android.app.Activity
 import android.content.DialogInterface.OnClickListener

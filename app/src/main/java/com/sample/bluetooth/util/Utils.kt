@@ -1,4 +1,4 @@
-package com.sample.bluetooth
+package com.sample.bluetooth.util
 
 import android.Manifest
 import android.app.Activity
