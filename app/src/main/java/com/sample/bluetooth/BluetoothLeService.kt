@@ -20,6 +20,8 @@ import android.util.Log
 import com.sample.bluetooth.ble.BluetoothLeUtil
 import com.sample.bluetooth.ble.GattCallback
 import com.sample.bluetooth.util.ACTION_BLE_START_SCAN
+import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING
+import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING_STOP
 import com.sample.bluetooth.util.ACTION_CACHE_CLIENT_MESSENGER
 import com.sample.bluetooth.util.ACTION_UPDATE_UI_TOAST
 import com.sample.bluetooth.util.XIAOMI_ENV_SENSOR_CHARACTERISTIC
@@ -32,6 +34,15 @@ import java.util.*
 class BluetoothLeService : Service() {
 
     private var mScanning = false
+        set(value) {
+            field = value
+            if (value) {
+                sendMessage(ACTION_BLUETOOTH_SCANNING)
+            } else {
+                sendMessage(ACTION_BLUETOOTH_SCANNING_STOP)
+            }
+        }
+
     private lateinit var mGattCallback: GattCallback
 
     private val mBluetoothAdapter: BluetoothAdapter by lazy {
@@ -58,11 +69,8 @@ class BluetoothLeService : Service() {
         })
     }
 
-    fun updateUI() {
-        Message.obtain().apply {
-            what = ACTION_UPDATE_UI_TOAST
-            clientMessenger?.send(this)
-        }
+    private fun updateUI() {
+        sendMessage(ACTION_UPDATE_UI_TOAST)
     }
 
     private val mScanCallback = object : ScanCallback() {
@@ -85,12 +93,9 @@ class BluetoothLeService : Service() {
         }
     }
 
-    fun connectTargetDevice(bluetoothDevice: BluetoothDevice) {
+    private fun connectTargetDevice(bluetoothDevice: BluetoothDevice) {
         bluetoothDevice.connectGatt(
-            this@BluetoothLeService,
-            false,
-            mGattCallback,
-            BluetoothDevice.TRANSPORT_LE
+            this@BluetoothLeService, false, mGattCallback, BluetoothDevice.TRANSPORT_LE
         )
     }
 
@@ -124,20 +129,24 @@ class BluetoothLeService : Service() {
         return Messenger(mInnerHandler).binder
     }
 
-    fun startBleScan() {
+    private fun sendMessage(action: Int) {
+        Message.obtain().apply {
+            what = action
+            clientMessenger?.send(this)
+        }
+    }
+
+    private fun startBleScan() {
         if (mScanning) {
             stopBleScan()
 
         } else {
             mScanning = true
 
-            val scanFilter = ScanFilter.Builder()
-                .setDeviceName(XIAOMI_MIJIA_SENSOR_NAME)
-                .build()
+            val scanFilter = ScanFilter.Builder().setDeviceName(XIAOMI_MIJIA_SENSOR_NAME).build()
 
-            val scanSettings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .build()
+            val scanSettings =
+                ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
 
             val filters = mutableListOf<ScanFilter>().apply {
                 add(scanFilter)
@@ -147,19 +156,19 @@ class BluetoothLeService : Service() {
         }
     }
 
-    fun stopBleScan() {
+    private fun stopBleScan() {
         mBleScanner.stopScan(mScanCallback)
         mScanning = false
     }
 
 
-    fun discoveryServices() {
+    private fun discoveryServices() {
         Handler(Looper.getMainLooper()).postDelayed({
             mGattCallback.mBluetoothGatt?.discoverServices()
         }, 100)
     }
 
-    fun enableNotify() {
+    private fun enableNotify() {
         val serviceUuid = UUID.fromString(XIAOMI_ENV_SENSOR_SERVICE)
         val charUuid = UUID.fromString(XIAOMI_ENV_SENSOR_CHARACTERISTIC)
 
@@ -182,12 +191,12 @@ class BluetoothLeService : Service() {
 
     }
 
-    companion object {
+    private companion object {
         private const val TAG = "BluetoothLeService"
     }
 
     // ---------------------------------------------------------------------------------------------
-    fun readBatteryLevel(gatt: BluetoothGatt) {
+    private fun readBatteryLevel(gatt: BluetoothGatt) {
 
         val batteryServiceUuid = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
         val batteryLevelCharUuid = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")

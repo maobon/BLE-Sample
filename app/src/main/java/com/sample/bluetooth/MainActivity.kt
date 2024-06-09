@@ -25,6 +25,8 @@ import com.sample.bluetooth.ble.BluetoothUtil
 import com.sample.bluetooth.ui.DialogUtil
 import com.sample.bluetooth.ui.DialogUtil.PERMISSION_REQUEST_CODE
 import com.sample.bluetooth.util.ACTION_BLE_START_SCAN
+import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING
+import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING_STOP
 import com.sample.bluetooth.util.ACTION_CACHE_CLIENT_MESSENGER
 import com.sample.bluetooth.util.ACTION_UPDATE_UI_TOAST
 import com.sample.bluetooth.util.createToast
@@ -56,6 +58,18 @@ class MainActivity : AppCompatActivity() {
                 ACTION_UPDATE_UI_TOAST -> {
                     activity.createToast(activity, "discovery services completed")
                 }
+
+                ACTION_BLUETOOTH_SCANNING ->{
+                    activity.runOnUiThread {
+                        activity.btnScan.text = "STOP SCAN"
+                    }
+                }
+
+                ACTION_BLUETOOTH_SCANNING_STOP->{
+                    activity.runOnUiThread {
+                        activity.btnScan.text = "START SCAN"
+                    }
+                }
             }
         }
     }
@@ -82,7 +96,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    inner class BluetoothServiceLeConn : ServiceConnection {
+    private inner class BluetoothServiceLeConn : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             // mBluetoothLeService = (service as BluetoothLeService.InnerBinder).getService()
             serviceMessenger = Messenger(service)
@@ -94,7 +108,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun sendClientMessengerToService() {
+    private fun sendClientMessengerToService() {
         Message.obtain().apply {
             what = ACTION_CACHE_CLIENT_MESSENGER
             replyTo = clientMessenger
@@ -236,7 +250,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    companion object {
+    private companion object {
         private const val TAG = "MainActivity"
 
     }
