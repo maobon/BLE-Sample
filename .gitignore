@@ -11,3 +11,7 @@ local.properties
 /.idea/deploymentTargetSelector.xml
 /.idea/kotlinc.xml
 /.idea/misc.xml
+/.idea/gradle.xml
+/.idea/compiler.xml
+/.idea/vcs.xml
+/.idea/workspace.xml
