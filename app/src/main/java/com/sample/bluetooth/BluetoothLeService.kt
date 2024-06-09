@@ -44,8 +44,6 @@ class BluetoothLeService : Service() {
             }
         }
 
-    private lateinit var mGattCallback: GattCallback
-
     private val mBluetoothAdapter: BluetoothAdapter by lazy {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothManager.adapter
@@ -55,10 +53,8 @@ class BluetoothLeService : Service() {
         mBluetoothAdapter.bluetoothLeScanner
     }
 
-    override fun onCreate() {
-        super.onCreate()
-
-        mGattCallback = GattCallback(object : GattCallback.ConnectionStateListener {
+    private val mGattCallback by lazy {
+        GattCallback(object : GattCallback.ConnectionStateListener{
             override fun onConnected() {
                 discoveryServices()
             }
@@ -87,17 +83,15 @@ class BluetoothLeService : Service() {
 
     private val mScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val bluetoothDevice = result.device
+            val device = result.device
+            Log.d(TAG, "connecting!!! ---> : ${device.name} + ${device.address}")
 
             if (mScanning) {
                 stopBleScan()
             }
 
-            // todo core connect to the target ...
-            bluetoothDevice.apply {
-                Log.d(TAG, "connecting!!! ---> : ${this.name} + ${this.address}")
-                connectTargetDevice(this)
-            }
+            // todo ... core connect to the target ...
+            connectTargetDevice(device)
         }
 
         override fun onScanFailed(errorCode: Int) {
@@ -107,7 +101,7 @@ class BluetoothLeService : Service() {
 
     private fun connectTargetDevice(bluetoothDevice: BluetoothDevice) {
         bluetoothDevice.connectGatt(
-            this@BluetoothLeService, false, mGattCallback, BluetoothDevice.TRANSPORT_LE
+            this, false, mGattCallback, BluetoothDevice.TRANSPORT_LE
         )
     }
 

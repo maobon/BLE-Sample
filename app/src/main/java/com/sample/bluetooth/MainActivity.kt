@@ -129,6 +129,7 @@ class MainActivity : AppCompatActivity() {
 
     // -------------------------------------------------------------------------------------------
 
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -189,6 +190,7 @@ class MainActivity : AppCompatActivity() {
         DialogUtil.showReqPermissions(DialogUtil.PermissionType.Bluetooth, this)
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onRequestPermissionsResult(
         requestCode: Int, permissions: Array<out String>, grantResults: IntArray
     ) {
