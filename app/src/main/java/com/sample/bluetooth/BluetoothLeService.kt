@@ -23,6 +23,7 @@ import com.sample.bluetooth.util.ACTION_BLE_START_SCAN
 import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING
 import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING_STOP
 import com.sample.bluetooth.util.ACTION_CACHE_CLIENT_MESSENGER
+import com.sample.bluetooth.util.ACTION_SENSOR_DATA
 import com.sample.bluetooth.util.ACTION_UPDATE_UI_TOAST
 import com.sample.bluetooth.util.XIAOMI_ENV_SENSOR_CHARACTERISTIC
 import com.sample.bluetooth.util.XIAOMI_ENV_SENSOR_SERVICE
@@ -63,8 +64,19 @@ class BluetoothLeService : Service() {
             }
 
             override fun onServiceDiscovered() {
-                updateUI()
+                updateUI() // using for test
                 enableNotify()
+            }
+
+            override fun onGetSenorData(data: String) {
+                Log.d(TAG, "onGetSenorData: $data")
+                val temperature = with(data) {
+                    substring(indexOf("T=")+2, lastIndexOf(" "))
+                }
+                val humidity = with(data) {
+                    substring(indexOf("H=")+2, length - 1)
+                }
+                sendMessage(ACTION_SENSOR_DATA, "$temperature:$humidity")
             }
         })
     }
@@ -129,9 +141,10 @@ class BluetoothLeService : Service() {
         return Messenger(mInnerHandler).binder
     }
 
-    private fun sendMessage(action: Int) {
+    private fun sendMessage(action: Int, data: String? = null) {
         Message.obtain().apply {
             what = action
+            if (data?.isNotEmpty() == true) obj = data
             clientMessenger?.send(this)
         }
     }

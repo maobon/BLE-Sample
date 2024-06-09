@@ -17,6 +17,7 @@ import android.os.Message
 import android.os.Messenger
 import android.util.Log
 import android.widget.Button
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
@@ -28,6 +29,7 @@ import com.sample.bluetooth.util.ACTION_BLE_START_SCAN
 import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING
 import com.sample.bluetooth.util.ACTION_BLUETOOTH_SCANNING_STOP
 import com.sample.bluetooth.util.ACTION_CACHE_CLIENT_MESSENGER
+import com.sample.bluetooth.util.ACTION_SENSOR_DATA
 import com.sample.bluetooth.util.ACTION_UPDATE_UI_TOAST
 import com.sample.bluetooth.util.createToast
 import com.sample.bluetooth.util.hasPermission
@@ -59,16 +61,25 @@ class MainActivity : AppCompatActivity() {
                     activity.createToast(activity, "discovery services completed")
                 }
 
-                ACTION_BLUETOOTH_SCANNING ->{
+                ACTION_BLUETOOTH_SCANNING -> {
                     activity.runOnUiThread {
                         activity.btnScan.text = "STOP SCAN"
                     }
                 }
 
-                ACTION_BLUETOOTH_SCANNING_STOP->{
+                ACTION_BLUETOOTH_SCANNING_STOP -> {
                     activity.runOnUiThread {
                         activity.btnScan.text = "START SCAN"
                     }
+                }
+
+                ACTION_SENSOR_DATA -> {
+                    (msg.obj as String).apply {
+                        val xx = split(":")
+                        activity.findViewById<TextView>(R.id.tv_data).text =
+                            "temp:${xx[0]}℃\nhumi:${xx[1]}%"
+                    }
+
                 }
             }
         }

@@ -6,6 +6,15 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <TextView
+        android:id="@+id/tv_data"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/btn_test"
+        android:layout_centerInParent="true"
+        android:layout_marginBottom="15dp"
+        android:textSize="22sp" />
+
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/btn_test"
         android:layout_width="wrap_content"

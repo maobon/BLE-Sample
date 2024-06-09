@@ -24,6 +24,9 @@ class GattCallback(
         fun onConnected()
 
         fun onServiceDiscovered()
+
+        // data
+        fun onGetSenorData(data:String)
     }
 
     @SuppressLint("MissingPermission")
@@ -151,27 +154,10 @@ class GattCallback(
     override fun onCharacteristicChanged(
         gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray
     ) {
-
         val newValueHex = value.toHexString()
         with(characteristic) {
             Log.i("BluetoothGattCallback", "Characteristic $uuid changed | value: $newValueHex")
         }
-
-        // ...
-        val str = String(value)
-        Log.d(TAG, "onCharacteristicChanged: str: $str")
-
-        // temp
-        val kk = with(str) {
-            substring(indexOf("T="), lastIndexOf(" "))
-        }
-        Log.d(TAG, "onCharacteristicChanged: $kk")
-
-        // temp
-        val k = with(str) {
-            substring(indexOf("H="), length - 1)
-        }
-        Log.d(TAG, "onCharacteristicChanged: $k")
+        mStatusListener.onGetSenorData(String(value))
     }
-
 }
