@@ -71,10 +71,10 @@ class BluetoothLeService : Service() {
             override fun onGetSenorData(data: String) {
                 Log.d(TAG, "onGetSenorData: $data")
                 val temperature = with(data) {
-                    substring(indexOf("T=")+2, lastIndexOf(" "))
+                    substring(indexOf("T=") + 2, lastIndexOf(" "))
                 }
                 val humidity = with(data) {
-                    substring(indexOf("H=")+2, length - 1)
+                    substring(indexOf("H=") + 2, length - 1)
                 }
                 sendMessage(ACTION_SENSOR_DATA, "$temperature:$humidity")
             }
