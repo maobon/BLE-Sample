@@ -127,4 +127,5 @@ class BluetoothLeUtil(
     companion object {
         private const val TAG = "BluetoothLEUtils"
     }
+
 }

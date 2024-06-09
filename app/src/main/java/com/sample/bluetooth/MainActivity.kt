@@ -10,7 +10,11 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.Message
+import android.os.Messenger
 import android.util.Log
 import android.widget.Button
 import androidx.activity.enableEdgeToEdge
@@ -20,7 +24,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.sample.bluetooth.ble.BluetoothUtil
 import com.sample.bluetooth.ui.DialogUtil
+import com.sample.bluetooth.util.ACTION_BLE_START_SCAN
+import com.sample.bluetooth.util.ACTION_CACHE_CLIENT_MESSENGER
+import com.sample.bluetooth.util.ACTION_UPDATE_UI_TOAST
 import com.sample.bluetooth.util.createToast
 import com.sample.bluetooth.util.hasPermission
 import com.sample.bluetooth.util.hasRequiredBluetoothPermissions
@@ -32,6 +40,31 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTest2: Button
     private lateinit var btnTest3: Button
 
+    private var serviceMessenger: Messenger? = null
+    private val clientMessenger by lazy {
+        Messenger(ClientHandler(this@MainActivity))
+    }
+
+    private val bluetoothUtil by lazy {
+        BluetoothUtil(this@MainActivity)
+    }
+
+    private val mPromptDialog: DialogUtil by lazy {
+        DialogUtil(this@MainActivity)
+    }
+
+    internal class ClientHandler(
+        private val activity: MainActivity
+    ) : Handler(Looper.getMainLooper()) {
+        override fun handleMessage(msg: Message) {
+            when (msg.what) {
+                ACTION_UPDATE_UI_TOAST -> {
+                    activity.createToast(activity, "discovery services completed")
+                }
+            }
+        }
+    }
+
     // private var isScanning = false
     //     set(value) {
     //         field = value
@@ -40,11 +73,7 @@ class MainActivity : AppCompatActivity() {
     //         }
     //     }
 
-    private val mPromptDialog: DialogUtil by lazy {
-        DialogUtil(this@MainActivity)
-    }
-
-    private var mBluetoothLeService: BluetoothLeService? = null
+    // private var mBluetoothLeService: BluetoothLeService? = null
 
     private val mBluetoothEnablingResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -54,8 +83,7 @@ class MainActivity : AppCompatActivity() {
 
             // todo ....
             // Bluetooth is enabled, good to go
-            createToast(this@MainActivity, "Bluetooth good 2 GO")
-            mBluetoothLeService?.startBleScan()
+            bluetoothStartScan()
 
         } else {
             // User dismissed or denied Bluetooth prompt
@@ -66,11 +94,18 @@ class MainActivity : AppCompatActivity() {
 
     inner class BluetoothServiceLeConn : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            mBluetoothLeService = (service as BluetoothLeService.InnerBinder).getService()
+            // mBluetoothLeService = (service as BluetoothLeService.InnerBinder).getService()
+            serviceMessenger = Messenger(service)
+
+            Message.obtain().apply {
+                what = ACTION_CACHE_CLIENT_MESSENGER
+                replyTo = clientMessenger
+                serviceMessenger!!.send(this)
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            mBluetoothLeService = null
+            // mBluetoothLeService = null
         }
     }
 
@@ -94,7 +129,7 @@ class MainActivity : AppCompatActivity() {
             if (!hasRequiredBluetoothPermissions()) {
                 requestRelevantRuntimePermissions()
             } else {
-                mBluetoothLeService?.startBleScan()
+                bluetoothStartScan()
             }
         }
 
@@ -114,17 +149,20 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
 
-        Intent(this@MainActivity, BluetoothLeService::class.java).let {
-            bindService(it, BluetoothServiceLeConn(), Context.BIND_AUTO_CREATE)
-        }
+        bindService(
+            Intent(this@MainActivity, BluetoothLeService::class.java),
+            BluetoothServiceLeConn(),
+            Context.BIND_AUTO_CREATE
+        )
 
-        if (mBluetoothLeService?.isBluetoothEnable() != true)
+        if (!bluetoothUtil.isBluetoothEnable())
             promptEnableBluetooth()
     }
 
     // -------------------------------------------------------------------------------------------
     private fun Activity.requestRelevantRuntimePermissions() {
-        if (hasRequiredBluetoothPermissions()) return
+        if (hasRequiredBluetoothPermissions())
+            return
 
         when {
             Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> requestLocationPermission()
@@ -194,12 +232,12 @@ class MainActivity : AppCompatActivity() {
 
             allGranted && hasRequiredBluetoothPermissions() -> {
                 // todo core method ...
-                mBluetoothLeService?.startBleScan()
+                bluetoothStartScan()
             }
 
             else -> {
                 // Unexpected scenario encountered when handling permissions
-                recreate()
+                // recreate()
             }
         }
     }
@@ -217,10 +255,17 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (mBluetoothLeService?.isBluetoothEnable() != true) {
+        if (!bluetoothUtil.isBluetoothEnable()) {
             Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).apply {
                 mBluetoothEnablingResult.launch(this)
             }
+        }
+    }
+
+    private fun bluetoothStartScan() {
+        Message.obtain().apply {
+            what = ACTION_BLE_START_SCAN
+            serviceMessenger?.send(this)
         }
     }
 

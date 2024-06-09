@@ -12,19 +12,24 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
-import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.Message
+import android.os.Messenger
 import android.util.Log
 import com.sample.bluetooth.ble.BluetoothLeUtil
 import com.sample.bluetooth.ble.GattCallback
+import com.sample.bluetooth.util.ACTION_BLE_START_SCAN
+import com.sample.bluetooth.util.ACTION_CACHE_CLIENT_MESSENGER
+import com.sample.bluetooth.util.ACTION_UPDATE_UI_TOAST
 import com.sample.bluetooth.util.XIAOMI_ENV_SENSOR_CHARACTERISTIC
 import com.sample.bluetooth.util.XIAOMI_ENV_SENSOR_SERVICE
 import com.sample.bluetooth.util.XIAOMI_MIJIA_SENSOR_NAME
 import com.sample.bluetooth.util.isReadable
 import java.util.*
 
+@Suppress("all")
 class BluetoothLeService : Service() {
 
     private var mScanning = false
@@ -48,47 +53,77 @@ class BluetoothLeService : Service() {
             }
 
             override fun onServiceDiscovered() {
+                updateUI()
                 enableNotify()
             }
         })
     }
 
-    @Suppress("all")
+    fun updateUI() {
+        Message.obtain().apply {
+            what = ACTION_UPDATE_UI_TOAST
+            clientMessenger?.send(this)
+        }
+    }
+
     private val mScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            if (mScanning) stopBleScan()
+            val bluetoothDevice = result.device
+
+            if (mScanning) {
+                stopBleScan()
+            }
 
             // todo core connect to the target ...
-            result.device.apply {
+            bluetoothDevice.apply {
                 Log.d(TAG, "connecting!!! ---> : ${this.name} + ${this.address}")
-
-                connectGatt(
-                    this@BluetoothLeService,
-                    false,
-                    mGattCallback,
-                    BluetoothDevice.TRANSPORT_LE
-                )
+                connectTargetDevice(this)
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
-
+            Log.d(TAG, "onScanFailed: error code: $errorCode")
         }
     }
 
-    inner class InnerBinder : Binder() {
-        fun getService() = this@BluetoothLeService
+    fun connectTargetDevice(bluetoothDevice: BluetoothDevice) {
+        bluetoothDevice.connectGatt(this@BluetoothLeService, false, mGattCallback, BluetoothDevice.TRANSPORT_LE)
+    }
+
+    // inner class InnerBinder : Binder() {
+    //     fun getService() = this@BluetoothLeService
+    // }
+
+    private var clientMessenger: Messenger? = null
+
+    private val mInnerHandler by lazy {
+        InnerHandler(this@BluetoothLeService)
+    }
+
+    internal class InnerHandler(private val service: BluetoothLeService) :
+        Handler(Looper.getMainLooper()) {
+        override fun handleMessage(msg: Message) {
+            when (msg.what) {
+                ACTION_CACHE_CLIENT_MESSENGER -> {
+                    service.clientMessenger = msg.replyTo
+                }
+                ACTION_BLE_START_SCAN -> {
+                    Log.d(TAG, "handleMessage: start ble scan is called")
+                    service.startBleScan()
+                }
+            }
+        }
     }
 
     override fun onBind(intent: Intent): IBinder {
-        return InnerBinder()
+        return Messenger(mInnerHandler).binder
     }
 
-    fun isBluetoothEnable() = mBluetoothAdapter.isEnabled
-
-    @Suppress("all")
     fun startBleScan() {
-        if (mScanning) stopBleScan() else {
+        if (mScanning) {
+            stopBleScan()
+
+        } else {
             mScanning = true
 
             val scanFilter = ScanFilter.Builder()
@@ -107,13 +142,12 @@ class BluetoothLeService : Service() {
         }
     }
 
-    @Suppress("all")
     fun stopBleScan() {
         mBleScanner.stopScan(mScanCallback)
         mScanning = false
     }
 
-    @SuppressLint("MissingPermission")
+
     fun discoveryServices() {
         Handler(Looper.getMainLooper()).postDelayed({
             mGattCallback.mBluetoothGatt?.discoverServices()
@@ -148,7 +182,6 @@ class BluetoothLeService : Service() {
     }
 
     // ---------------------------------------------------------------------------------------------
-    @SuppressLint("MissingPermission")
     fun readBatteryLevel(gatt: BluetoothGatt) {
 
         val batteryServiceUuid = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
