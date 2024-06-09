@@ -1,6 +1,5 @@
 package com.sample.bluetooth
 
-import android.annotation.SuppressLint
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -87,7 +86,12 @@ class BluetoothLeService : Service() {
     }
 
     fun connectTargetDevice(bluetoothDevice: BluetoothDevice) {
-        bluetoothDevice.connectGatt(this@BluetoothLeService, false, mGattCallback, BluetoothDevice.TRANSPORT_LE)
+        bluetoothDevice.connectGatt(
+            this@BluetoothLeService,
+            false,
+            mGattCallback,
+            BluetoothDevice.TRANSPORT_LE
+        )
     }
 
     // inner class InnerBinder : Binder() {
@@ -107,6 +111,7 @@ class BluetoothLeService : Service() {
                 ACTION_CACHE_CLIENT_MESSENGER -> {
                     service.clientMessenger = msg.replyTo
                 }
+
                 ACTION_BLE_START_SCAN -> {
                     Log.d(TAG, "handleMessage: start ble scan is called")
                     service.startBleScan()

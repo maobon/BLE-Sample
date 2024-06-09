@@ -20,6 +20,7 @@ class GattCallback(
     var mBluetoothGatt: BluetoothGatt? = null
 
     interface ConnectionStateListener {
+
         fun onConnected()
 
         fun onServiceDiscovered()

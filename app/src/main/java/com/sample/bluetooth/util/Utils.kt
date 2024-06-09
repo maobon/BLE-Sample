@@ -86,3 +86,17 @@ fun littleEndianConversion(bytes: ByteArray): Int {
     }
     return result
 }
+
+// ....
+fun Context.requestRelevantRuntimePermissions(belowS: () -> Unit, aboveS: () -> Unit) {
+    if (hasRequiredBluetoothPermissions())
+        return
+
+    when {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> belowS()
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> aboveS()
+    }
+}
+
+
+

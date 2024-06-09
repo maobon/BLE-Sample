@@ -17,21 +17,20 @@ import android.os.Message
 import android.os.Messenger
 import android.util.Log
 import android.widget.Button
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.sample.bluetooth.ble.BluetoothUtil
 import com.sample.bluetooth.ui.DialogUtil
+import com.sample.bluetooth.ui.DialogUtil.PERMISSION_REQUEST_CODE
 import com.sample.bluetooth.util.ACTION_BLE_START_SCAN
 import com.sample.bluetooth.util.ACTION_CACHE_CLIENT_MESSENGER
 import com.sample.bluetooth.util.ACTION_UPDATE_UI_TOAST
 import com.sample.bluetooth.util.createToast
 import com.sample.bluetooth.util.hasPermission
 import com.sample.bluetooth.util.hasRequiredBluetoothPermissions
+import com.sample.bluetooth.util.requestRelevantRuntimePermissions
 
 
 class MainActivity : AppCompatActivity() {
@@ -47,10 +46,6 @@ class MainActivity : AppCompatActivity() {
 
     private val bluetoothUtil by lazy {
         BluetoothUtil(this@MainActivity)
-    }
-
-    private val mPromptDialog: DialogUtil by lazy {
-        DialogUtil(this@MainActivity)
     }
 
     internal class ClientHandler(
@@ -78,16 +73,11 @@ class MainActivity : AppCompatActivity() {
     private val mBluetoothEnablingResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-
         if (it.resultCode == Activity.RESULT_OK) {
-
-            // todo ....
             // Bluetooth is enabled, good to go
             bluetoothStartScan()
-
         } else {
-            // User dismissed or denied Bluetooth prompt
-            // again and again until user enable bluetooth
+            // User dismissed or denied Bluetooth prompt again and again until user enable bluetooth
             promptEnableBluetooth()
         }
     }
@@ -96,12 +86,7 @@ class MainActivity : AppCompatActivity() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             // mBluetoothLeService = (service as BluetoothLeService.InnerBinder).getService()
             serviceMessenger = Messenger(service)
-
-            Message.obtain().apply {
-                what = ACTION_CACHE_CLIENT_MESSENGER
-                replyTo = clientMessenger
-                serviceMessenger!!.send(this)
-            }
+            sendClientMessengerToService()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -109,25 +94,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun sendClientMessengerToService() {
+        Message.obtain().apply {
+            what = ACTION_CACHE_CLIENT_MESSENGER
+            replyTo = clientMessenger
+            serviceMessenger!!.send(this)
+        }
+    }
+
     // -------------------------------------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
-
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
 
         // Button 1
         btnScan = findViewById(R.id.btn_test)
         btnScan.setOnClickListener {
             if (!hasRequiredBluetoothPermissions()) {
-                requestRelevantRuntimePermissions()
+                requestRelevantRuntimePermissions(
+                    ::requestLocationPermission, ::requestBluetoothPermissions
+                )
             } else {
                 bluetoothStartScan()
             }
@@ -155,48 +142,26 @@ class MainActivity : AppCompatActivity() {
             Context.BIND_AUTO_CREATE
         )
 
-        if (!bluetoothUtil.isBluetoothEnable())
+        if (!bluetoothUtil.isBluetoothEnable()) {
             promptEnableBluetooth()
-    }
-
-    // -------------------------------------------------------------------------------------------
-    private fun Activity.requestRelevantRuntimePermissions() {
-        if (hasRequiredBluetoothPermissions())
-            return
-
-        when {
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> requestLocationPermission()
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> requestBluetoothPermissions()
         }
     }
 
-    private fun requestLocationPermission() = runOnUiThread {
-        mPromptDialog.show(
-            "Location permission required",
-            "Starting from Android M (6.0), the system requires apps to be granted " + "location access in order to scan for BLE devices."
-        ) { _, _ ->
+    // private fun Activity.requestRelevantRuntimePermissions() {
+    //     if (hasRequiredBluetoothPermissions()) return
+    //     when {
+    //         Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> requestLocationPermission()
+    //         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> requestBluetoothPermissions()
+    //     }
+    // }
 
-            ActivityCompat.requestPermissions(
-                this, arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ), PERMISSION_REQUEST_CODE
-            )
-        }
+    private fun requestLocationPermission() {
+        DialogUtil.showReqPermissions(DialogUtil.PermissionType.Location, this)
     }
 
     @RequiresApi(Build.VERSION_CODES.S)
-    private fun requestBluetoothPermissions() = runOnUiThread {
-        mPromptDialog.show(
-            "Bluetooth permission required",
-            "Starting from Android 12, the system requires apps to be granted " + "Bluetooth access in order to scan for and connect to BLE devices."
-        ) { _, _ ->
-
-            ActivityCompat.requestPermissions(
-                this, arrayOf(
-                    Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT
-                ), PERMISSION_REQUEST_CODE
-            )
-        }
+    private fun requestBluetoothPermissions() {
+        DialogUtil.showReqPermissions(DialogUtil.PermissionType.Bluetooth, this)
     }
 
     override fun onRequestPermissionsResult(
@@ -227,7 +192,9 @@ class MainActivity : AppCompatActivity() {
             }
 
             containsDenial -> {
-                requestRelevantRuntimePermissions()
+                requestRelevantRuntimePermissions(
+                    ::requestLocationPermission, ::requestBluetoothPermissions
+                )
             }
 
             allGranted && hasRequiredBluetoothPermissions() -> {
@@ -271,6 +238,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
-        private const val PERMISSION_REQUEST_CODE = 100
+
     }
 }
